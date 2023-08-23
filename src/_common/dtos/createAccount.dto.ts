@@ -1,10 +1,7 @@
 import { IsNotEmpty, IsNumber, IsString, Matches, MATCHES, MaxLength, MinLength } from 'class-validator';
+import { CreateClientDto } from './createClient.dto';
 
-export class CreateAccountDto {
-  @IsNotEmpty()
-  @IsNumber()
-  clientId: number;
-
+export class CreateAccountDto extends CreateClientDto {
   @IsNotEmpty()
   @IsNumber()
   typeId: number;
