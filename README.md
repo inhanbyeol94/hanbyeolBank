@@ -68,6 +68,9 @@ npm install @nestjs/typeorm typeorm mysql2
 npm install class-validator class-transformer
 npm install typeorm-naming-strategies
 npm install bcrypt
+npm install @nestjs/cache-manager cache-manager
+npm install cache-manager-redis-store
+npm install crypto
 ```
 
 
