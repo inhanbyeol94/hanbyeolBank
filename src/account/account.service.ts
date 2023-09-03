@@ -1,4 +1,4 @@
-import { HttpException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Account } from '../_common/entities/account.entity';
 import { Repository } from 'typeorm';
@@ -13,6 +13,12 @@ import { IClientVerifyIdentity } from '../_common/interfaces/clientVerifyIdentit
 import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { extractAccountNumber } from '../_common/utils/accountNumber.extract';
+import { VerifyAccountDto } from '../_common/dtos/verifyAccount.dto';
+import { IResult } from '../_common/interfaces/result.interface';
+import { InterpretingAccountNumber } from '../_common/utils/accountNumber.interpreting';
+import { accountNumberVerify } from '../_common/utils/accountNumber.verify';
+import { find } from 'rxjs';
+import { VerifyAccountNumberDto } from '../_common/dtos/verifyAccountNumber.dto';
 
 @Injectable()
 export class AccountService {
@@ -29,9 +35,14 @@ export class AccountService {
     return { message: '정상 등록되었습니다.' };
   }
   async createAccount(newAccount: CreateAccountDto): Promise<IAccountNumber> {
-    /* 본인확인 검증 */
     const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(newAccount.phone);
-    if (!findByVerifyData || findByVerifyData.sequence !== 1 || findByVerifyData.type !== 101) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+    if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+
+    /* 어뷰징 유저 의심 요청으로 인증캐시 삭제 */
+    if (+findByVerifyData.sequence !== newAccount.sequence || findByVerifyData.type !== 101) {
+      await this.cacheManager.del(newAccount.phone);
+      throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+    }
 
     /* 본인확인 정보로 사용자 인덱스 추출 */
     const clientId = await this.clientService.existClient(newAccount.name, newAccount.phone, newAccount.residentRegistrationNumber);
@@ -50,7 +61,56 @@ export class AccountService {
       password: newAccount.password,
     });
 
+    await this.cacheManager.del(newAccount.phone);
+
     /* 예금계좌 반환 */
     return { message: '예금계좌가 정상 생성되었습니다.', accountNumber: extractAccountNumber(createAccount) };
+  }
+
+  async verifyIdentityAndAccount(verifyAccount: VerifyAccountDto): Promise<IResult> {
+    const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(verifyAccount.phone);
+    if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+
+    /* 어뷰징 유저 의심 요청으로 인증캐시 삭제 */
+    if (+findByVerifyData.sequence !== verifyAccount.sequence || findByVerifyData.type !== 105) {
+      await this.cacheManager.del(verifyAccount.phone);
+      throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+    }
+    const { id, time } = InterpretingAccountNumber(verifyAccount.accountNumber);
+    const findByAccount = await this.accountRepository.findOne({ where: { id }, relations: ['client'] });
+
+    if (!accountNumberVerify(time, findByAccount)) throw new HttpException('예금계좌의 정보가 일치하지 않습니다.', 403);
+
+    if (!findByAccount || findByAccount.client.name !== verifyAccount.name || findByAccount.client.phone !== verifyAccount.phone) {
+      throw new HttpException('예금계좌의 정보가 일치하지 않습니다.', 403);
+    }
+
+    if (!(await bcrypt.compare(verifyAccount.residentRegistrationNumber, findByAccount.client.residentRegistrationNumber))) {
+      await this.cacheManager.del(verifyAccount.phone);
+      throw new HttpException('예금계좌의 정보가 일치하지 않습니다.', 403);
+    }
+
+    if (!(await bcrypt.compare(String(verifyAccount.password), findByAccount.password))) {
+      throw new HttpException('예금계좌 비밀번호 오류', 403);
+    }
+
+    await this.cacheManager.del(verifyAccount.phone);
+
+    return { result: true };
+  }
+
+  async verifyAndFindAccount(accountNumber): Promise<{ verify: boolean; data: Account }> {
+    const { id, time } = InterpretingAccountNumber(accountNumber);
+    const findByAccountIdx = await this.accountRepository.findOne({
+      where: { id },
+      relations: { client: true },
+    });
+    return { verify: accountNumberVerify(time, findByAccountIdx), data: findByAccountIdx };
+  }
+
+  async verifyAccountNumber(accountNumberData: VerifyAccountNumberDto): Promise<IResult> {
+    const { data } = await this.verifyAndFindAccount(accountNumberData.accountNumber);
+    if (data.client.name !== accountNumberData.name) throw new HttpException('계좌번호와 이름을 확인해주세요.', 403);
+    return { result: true };
   }
 }
