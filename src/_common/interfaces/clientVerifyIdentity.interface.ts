@@ -4,4 +4,6 @@ export interface IClientVerifyIdentity {
   hash: string;
   type: number;
   sequence: number;
+  verify: boolean;
+  clientVeify: boolean;
 }
