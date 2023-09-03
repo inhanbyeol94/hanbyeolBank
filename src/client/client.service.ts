@@ -17,10 +17,17 @@ export class ClientService {
   ) {}
   async createClient(newClientData: CreateClientDto): Promise<IMessage> {
     const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(newClientData.phone);
-    if (!findByVerifyData || findByVerifyData.sequence !== 1 || findByVerifyData.type !== 100) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+    if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
 
+    /* 어뷰징 유저 의심 요청으로 인증캐시 삭제 */
+    if (+findByVerifyData.sequence !== newClientData.sequence || findByVerifyData.type !== 100) {
+      await this.cacheManager.del(newClientData.phone);
+      throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+    }
+
+    /* 기사용자 정보 조회 */
     const findByClient = await this.clientRepository.findOne({
-      where: { name: newClientData.name },
+      where: { name: newClientData.name, phone: newClientData.phone },
     });
 
     if (findByClient) {
@@ -32,7 +39,10 @@ export class ClientService {
     const findByPhone = await this.findByPhone(newClientData.phone);
 
     /* 기가입 데이터 유효성 검사 */
-    if (findByPhone) throw new HttpException('이미 사용중인 휴대폰번호 입니다.', 403);
+    if (findByPhone) {
+      await this.cacheManager.del(newClientData.phone);
+      throw new HttpException('이미 사용중인 휴대폰번호 입니다.', 403);
+    }
 
     const compare = await bcrypt.compare(newClientData.name + newClientData.residentRegistrationNumber + newClientData.phone, findByVerifyData.hash);
 

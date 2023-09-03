@@ -19,5 +19,5 @@ export class Log {
   createdAt: Date;
 
   @ManyToOne(() => Trade, (trade) => trade.logs)
-  trade: Trade[];
+  trade: Trade;
 }
