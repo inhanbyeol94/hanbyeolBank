@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsNumber, IsString, MaxLength, MinLength } from 'class-validator';
 
-export class CreateClientDto {
+export class WithdrawalsDto {
   @IsNotEmpty()
   @IsString()
   @MaxLength(5)
@@ -17,6 +17,22 @@ export class CreateClientDto {
   @MinLength(14)
   @MaxLength(14)
   residentRegistrationNumber: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(16)
+  @MaxLength(16)
+  accountNumber: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(4)
+  @MinLength(4)
+  password: string;
+
+  @IsNumber()
+  @IsNotEmpty()
+  amount: number;
 
   @IsNotEmpty()
   @IsNumber()
