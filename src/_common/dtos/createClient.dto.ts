@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateClientDto {
   @IsNotEmpty()
@@ -17,4 +17,8 @@ export class CreateClientDto {
   @MinLength(14)
   @MaxLength(14)
   residentRegistrationNumber: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  sequence: number;
 }
