@@ -7,6 +7,7 @@ import { ClientModule } from './client/client.module';
 import { AccountModule } from './account/account.module';
 import * as redisStore from 'cache-manager-redis-store';
 import { IdentityModule } from './identity/identity.module';
+import { TradeModule } from './trade/trade.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { IdentityModule } from './identity/identity.module';
     ClientModule,
     IdentityModule,
     AccountModule,
+    TradeModule,
   ],
   controllers: [],
   providers: [],
