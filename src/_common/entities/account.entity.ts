@@ -1,7 +1,8 @@
-import { AfterInsert, BeforeInsert, Column, CreateDateColumn, DeleteDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Client } from './client.entity';
 import { AccountType } from './accountType.entity';
 import { Trade } from './trade.entity';
+import { Partner } from './partner.entity';
 
 @Entity()
 export class Account {
@@ -28,4 +29,7 @@ export class Account {
 
   @OneToMany(() => Trade, (trade) => trade.account)
   trades: Trade[];
+
+  @OneToOne(() => Partner)
+  partner: Partner;
 }
