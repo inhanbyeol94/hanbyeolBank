@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class DirectDepositDto {
   @IsNotEmpty()
@@ -48,4 +48,8 @@ export class DirectDepositDto {
   @IsNotEmpty()
   @IsNumber()
   sequence: number;
+
+  @IsOptional()
+  @IsString()
+  partnerKey: string;
 }
