@@ -7,6 +7,8 @@ import { IAccountNumber } from '../_common/interfaces/accountNumber.interface';
 import { VerifyAccountDto } from '../_common/dtos/verifyAccount.dto';
 import { VerifyAccountNumberDto } from '../_common/dtos/verifyAccountNumber.dto';
 import { IResult } from '../_common/interfaces/result.interface';
+import { PartnerDto } from '../_common/dtos/partner.dto';
+import { ISecretKey } from '../_common/interfaces/secretKey.interface';
 
 @Controller('account')
 export class AccountController {
@@ -30,5 +32,10 @@ export class AccountController {
   @Post('verify')
   async verifyAccountNumber(@Body() accountNumberData: VerifyAccountNumberDto): Promise<IResult> {
     return await this.accountService.verifyAccountNumber(accountNumberData);
+  }
+
+  @Post('add/partner')
+  async addPartner(@Body() partnerData: PartnerDto): Promise<ISecretKey> {
+    return await this.accountService.addPartner(partnerData);
   }
 }

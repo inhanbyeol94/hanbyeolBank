@@ -19,12 +19,17 @@ import { InterpretingAccountNumber } from '../_common/utils/accountNumber.interp
 import { accountNumberVerify } from '../_common/utils/accountNumber.verify';
 import { find } from 'rxjs';
 import { VerifyAccountNumberDto } from '../_common/dtos/verifyAccountNumber.dto';
+import { PartnerDto } from '../_common/dtos/partner.dto';
+import { Partner } from '../_common/entities/partner.entity';
+import { ISecretKey } from '../_common/interfaces/secretKey.interface';
 
 @Injectable()
 export class AccountService {
   constructor(
     @InjectRepository(Account) private accountRepository: Repository<Account>,
     @InjectRepository(AccountType) private accountTypeRepository: Repository<AccountType>,
+    @InjectRepository(Partner) private partnerRepository: Repository<Partner>,
+
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private clientService: ClientService,
   ) {}
@@ -112,5 +117,27 @@ export class AccountService {
     const { data } = await this.verifyAndFindAccount(accountNumberData.accountNumber);
     if (data.client.name !== accountNumberData.name) throw new HttpException('계좌번호와 이름을 확인해주세요.', 403);
     return { result: true };
+  }
+
+  async addPartner(partnerData: PartnerDto): Promise<ISecretKey> {
+    const { data } = await this.verifyAndFindAccount(partnerData.accountNumber);
+    if (!data) throw new HttpException('정보가 일치하지 않습니다.', 403);
+    if (data.client.name !== partnerData.name) throw new HttpException('정보가 일치하지 않습니다.', 403);
+    if (data.client.phone !== partnerData.phone) throw new HttpException('정보가 일치하지 않습니다.', 403);
+    const verifyPassword = await bcrypt.compare(partnerData.password, data.password);
+    if (!verifyPassword) throw new HttpException('정보가 일치하지 않습니다.', 403);
+
+    const { id } = InterpretingAccountNumber(partnerData.accountNumber);
+    const isKey = await this.partnerRepository.findOneBy({ account: { id } });
+    console.log(isKey);
+    if (isKey) throw new HttpException('이미 발급된 키가 존재합니다.', 403);
+
+    const createKey = Math.random().toString(36).substring(2, 11);
+    const hashKey = await bcrypt.hash(createKey, 10);
+
+    const createPartner = await this.partnerRepository.create({ key: hashKey, account: { id } });
+    await this.partnerRepository.save(createPartner);
+
+    return { message: '정상 계약되었습니다.', secretKey: createKey };
   }
 }
