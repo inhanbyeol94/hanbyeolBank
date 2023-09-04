@@ -12,12 +12,15 @@ import { IMessage } from '../_common/interfaces/message.interface';
 import { IClientVerifyIdentity } from '../_common/interfaces/clientVerifyIdentity.interface';
 import { DirectDepositDto } from '../_common/dtos/directDeposit.dto';
 import { WithdrawalsDto } from '../_common/dtos/withdrawals.dto';
+import { Partner } from '../_common/entities/partner.entity';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class TradeService {
   constructor(
     @InjectRepository(Trade) private tradeRepository: Repository<Trade>,
     @InjectRepository(Log) private logRepository: Repository<Log>,
+    @InjectRepository(Partner) private partnerRepository: Repository<Partner>,
     private accountService: AccountService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private dataSource: DataSource,
@@ -49,20 +52,36 @@ export class TradeService {
 
   /* 계좌이체 */
   async directDeposit(tradeData: DirectDepositDto): Promise<IMessage> {
-    /* 캐시메모리 호출 */
-    const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(tradeData.phone);
+    /* 협력사의 요청에 의해 출금을 시도하는 경우는 협력사 암호키 확인 */
+    if (!tradeData.partnerKey) {
+      /* 캐시메모리 호출 */
+      const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(tradeData.phone);
 
-    /* 인증 데이터가 없을 경우 예외 반환 */
-    if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+      /* 인증 데이터가 없을 경우 예외 반환 */
+      if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
 
-    /* 인증 데이터 내부의 'type, sequence'가 일치하지 않을 경우 어뷰징 유저 의심으로 인해 인증캐시 삭제 및 예외 반환 */
-    if (+findByVerifyData.sequence !== tradeData.sequence || findByVerifyData.type !== 106) {
-      await this.cacheManager.del(tradeData.phone);
-      throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+      /* 인증 데이터 내부의 'type, sequence'가 일치하지 않을 경우 어뷰징 유저 의심으로 인해 인증캐시 삭제 및 예외 반환 */
+      if (+findByVerifyData.sequence !== tradeData.sequence || findByVerifyData.type !== 106) {
+        await this.cacheManager.del(tradeData.phone);
+        throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+      }
+
+      /* 본인 예금계좌 검증을 위해 캐시 메모리 'Type' 변경 */
+      await this.cacheManager.set(tradeData.phone, { ...findByVerifyData, type: 105 });
+    } else {
+      const { id: reqId } = InterpretingAccountNumber(tradeData.accountNumber);
+      const findByPartner = await this.partnerRepository.findOne({ where: { account: { id: reqId } }, relations: { account: { client: true } } });
+
+      const verifyKey = await bcrypt.compare(tradeData.partnerKey, findByPartner.key);
+      if (!verifyKey) throw new HttpException('요청하신 계좌의 인증키가 일치하지 않습니다.', 403);
+
+      await this.cacheManager.set(findByPartner.account.client.phone, {
+        name: findByPartner.account.client.name,
+        verify: true,
+        type: 105,
+        sequence: 101010,
+      });
     }
-
-    /* 본인 예금계좌 검증을 위해 캐시 메모리 'Type' 변경 */
-    await this.cacheManager.set(tradeData.phone, { ...findByVerifyData, type: 105 });
 
     /* 본인 예금계좌 검증 */
     await this.accountService.verifyIdentityAndAccount(tradeData);

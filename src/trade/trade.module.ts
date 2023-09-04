@@ -9,9 +9,10 @@ import { Account } from '../_common/entities/account.entity';
 import { AccountType } from '../_common/entities/accountType.entity';
 import { Client } from '../_common/entities/client.entity';
 import { ClientService } from '../client/client.service';
+import { Partner } from '../_common/entities/partner.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Trade, Log, Account, AccountType, Client])],
+  imports: [TypeOrmModule.forFeature([Trade, Log, Account, AccountType, Client, Partner])],
   controllers: [TradeController],
   providers: [TradeService, AccountService, ClientService],
 })
