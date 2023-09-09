@@ -30,7 +30,7 @@ export class TradeService {
   async depositWithoutPassbook(directDepositData: DirectDepositDataDto): Promise<IMessage> {
     /* 계좌번호, 예금주 검증 */
     const { verify, data } = await this.accountService.verifyAndFindAccount(directDepositData.accountNumber);
-    if (!verify) throw new HttpException('계좌번호와 예금주명을 확인해주세요.', 403);
+    if (!verify) throw new HttpException('송금할 계좌번호를 다시 확인해주세요.', 403);
 
     /* 입금 트랜젝션 */
     await this.dataSource.transaction(async (manager) => {
@@ -87,7 +87,7 @@ export class TradeService {
     await this.accountService.verifyIdentityAndAccount(tradeData);
 
     /* 상대방 계좌번호 검증 */
-    await this.accountService.verifyAccountNumber({ accountNumber: tradeData.requestAccountNubmer, name: tradeData.requestName });
+    const { data } = await this.accountService.verifyAccountNumber({ accountNumber: tradeData.requestAccountNubmer });
 
     /* 통장 잔여금액 호출 */
     const currentAmount = await this.accountBalance(tradeData.accountNumber);
@@ -107,7 +107,7 @@ export class TradeService {
       const createWithdrawalsLog = await manager.create(Log, {
         trade: { id: resultWithdrawals.id },
         status: resultWithdrawals.status,
-        context: `[계좌이체/출금] ${tradeData.requestAccountNubmer} / ${tradeData.requestName}`,
+        context: `[계좌이체/출금] ${tradeData.requestAccountNubmer} / ${data.client.name}`,
         result: true,
       });
       await manager.save(Log, createWithdrawalsLog);

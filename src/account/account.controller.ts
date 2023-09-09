@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { AccountService } from './account.service';
 import { CreateAccountTypeDto } from '../_common/dtos/createAccountType.dto';
 import { IMessage } from '../_common/interfaces/message.interface';
@@ -9,6 +9,7 @@ import { VerifyAccountNumberDto } from '../_common/dtos/verifyAccountNumber.dto'
 import { IResult } from '../_common/interfaces/result.interface';
 import { PartnerDto } from '../_common/dtos/partner.dto';
 import { ISecretKey } from '../_common/interfaces/secretKey.interface';
+import { AccountType } from '../_common/entities/accountType.entity';
 
 @Controller('account')
 export class AccountController {
@@ -17,6 +18,11 @@ export class AccountController {
   @Post('type')
   async createAccountType(@Body() newAccountType: CreateAccountTypeDto): Promise<IMessage> {
     return await this.accountService.createAccountType(newAccountType);
+  }
+
+  @Get('type')
+  async findByAccountType(): Promise<AccountType[]> {
+    return await this.accountService.findByAccountType();
   }
 
   @Post()
@@ -31,7 +37,8 @@ export class AccountController {
 
   @Post('verify')
   async verifyAccountNumber(@Body() accountNumberData: VerifyAccountNumberDto): Promise<IResult> {
-    return await this.accountService.verifyAccountNumber(accountNumberData);
+    const { result } = await this.accountService.verifyAccountNumber(accountNumberData);
+    return { result };
   }
 
   @Post('add/partner')

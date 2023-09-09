@@ -19,6 +19,6 @@ export class CreateClientDto {
   residentRegistrationNumber: string;
 
   @IsNotEmpty()
-  @IsNumber()
-  sequence: number;
+  @IsString()
+  sequence: string;
 }

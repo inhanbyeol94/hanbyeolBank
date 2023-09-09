@@ -20,7 +20,7 @@ export class ClientService {
     if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
 
     /* 어뷰징 유저 의심 요청으로 인증캐시 삭제 */
-    if (+findByVerifyData.sequence !== newClientData.sequence || findByVerifyData.type !== 100) {
+    if (findByVerifyData.sequence !== newClientData.sequence || findByVerifyData.type !== 100) {
       await this.cacheManager.del(newClientData.phone);
       throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
     }

@@ -44,7 +44,7 @@ export class AccountService {
     if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
 
     /* 어뷰징 유저 의심 요청으로 인증캐시 삭제 */
-    if (+findByVerifyData.sequence !== newAccount.sequence || findByVerifyData.type !== 101) {
+    if (findByVerifyData.sequence !== newAccount.sequence || findByVerifyData.type !== 101) {
       await this.cacheManager.del(newAccount.phone);
       throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
     }
@@ -113,10 +113,10 @@ export class AccountService {
     return { verify: accountNumberVerify(time, findByAccountIdx), data: findByAccountIdx };
   }
 
-  async verifyAccountNumber(accountNumberData: VerifyAccountNumberDto): Promise<IResult> {
-    const { data } = await this.verifyAndFindAccount(accountNumberData.accountNumber);
-    if (data.client.name !== accountNumberData.name) throw new HttpException('계좌번호와 이름을 확인해주세요.', 403);
-    return { result: true };
+  async verifyAccountNumber(accountNumberData: VerifyAccountNumberDto): Promise<{ result: boolean; data: Account }> {
+    const { data, verify } = await this.verifyAndFindAccount(accountNumberData.accountNumber);
+    if (!verify) throw new HttpException('존재하지 않는 계좌번호입니다.', 403);
+    return { result: true, data };
   }
 
   async addPartner(partnerData: PartnerDto): Promise<ISecretKey> {
@@ -139,5 +139,10 @@ export class AccountService {
     await this.partnerRepository.save(createPartner);
 
     return { message: '정상 계약되었습니다.', secretKey: createKey };
+  }
+
+  /* 계좌타입 조회 */
+  async findByAccountType(): Promise<AccountType[]> {
+    return await this.accountTypeRepository.find();
   }
 }

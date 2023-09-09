@@ -3,7 +3,7 @@ export interface IClientVerifyIdentity {
   code: string;
   hash: string;
   type: number;
-  sequence: number;
+  sequence: string;
   verify: boolean;
   clientVeify: boolean;
 }
