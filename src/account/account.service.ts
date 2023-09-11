@@ -22,6 +22,8 @@ import { VerifyAccountNumberDto } from '../_common/dtos/verifyAccountNumber.dto'
 import { PartnerDto } from '../_common/dtos/partner.dto';
 import { Partner } from '../_common/entities/partner.entity';
 import { ISecretKey } from '../_common/interfaces/secretKey.interface';
+import { BalanceinquiryDto } from '../_common/dtos/Balanceinquiry.dto';
+import { Trade } from '../_common/entities/trade.entity';
 
 @Injectable()
 export class AccountService {
@@ -95,11 +97,27 @@ export class AccountService {
       throw new HttpException('예금계좌의 정보가 일치하지 않습니다.', 403);
     }
 
-    if (!(await bcrypt.compare(String(verifyAccount.password), findByAccount.password))) {
-      throw new HttpException('예금계좌 비밀번호 오류', 403);
+    if (!(await bcrypt.compare(String(verifyAccount.password), findByAccount.password))) throw new HttpException('예금계좌 비밀번호 오류', 403);
+
+    return { result: true };
+  }
+
+  async verifyIdentityAndAccountFree(verifyAccount: VerifyAccountDto): Promise<IResult> {
+    const { id, time } = InterpretingAccountNumber(verifyAccount.accountNumber);
+    const findByAccount = await this.accountRepository.findOne({ where: { id }, relations: ['client'] });
+
+    if (!accountNumberVerify(time, findByAccount)) throw new HttpException('예금계좌의 정보가 일치하지 않습니다.', 403);
+
+    if (!findByAccount || findByAccount.client.name !== verifyAccount.name || findByAccount.client.phone !== verifyAccount.phone) {
+      throw new HttpException('예금계좌의 정보가 일치하지 않습니다.', 403);
     }
 
-    await this.cacheManager.del(verifyAccount.phone);
+    if (!(await bcrypt.compare(verifyAccount.residentRegistrationNumber, findByAccount.client.residentRegistrationNumber))) {
+      await this.cacheManager.del(verifyAccount.phone);
+      throw new HttpException('예금계좌의 정보가 일치하지 않습니다.', 403);
+    }
+
+    if (!(await bcrypt.compare(String(verifyAccount.password), findByAccount.password))) throw new HttpException('예금계좌 비밀번호 오류', 403);
 
     return { result: true };
   }
@@ -129,7 +147,7 @@ export class AccountService {
 
     const { id } = InterpretingAccountNumber(partnerData.accountNumber);
     const isKey = await this.partnerRepository.findOneBy({ account: { id } });
-    console.log(isKey);
+
     if (isKey) throw new HttpException('이미 발급된 키가 존재합니다.', 403);
 
     const createKey = Math.random().toString(36).substring(2, 11);
@@ -144,5 +162,31 @@ export class AccountService {
   /* 계좌타입 조회 */
   async findByAccountType(): Promise<AccountType[]> {
     return await this.accountTypeRepository.find();
+  }
+
+  /* 잔액 조회 */
+  async balanceinquiry(data: BalanceinquiryDto): Promise<Trade[]> {
+    // const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(data.phone);
+    // if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+    //
+    // /* 어뷰징 유저 의심 요청으로 인증캐시 삭제 */
+    // if (findByVerifyData.sequence !== data.sequence || findByVerifyData.type !== 108) {
+    //   await this.cacheManager.del(data.phone);
+    //   throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
+    // }
+
+    const { id, time } = InterpretingAccountNumber(data.accountNumber);
+    const findByTradeHistory = await this.accountRepository.findOne({ where: { id }, relations: ['trades', 'trades.logs', 'client'] });
+    if (!accountNumberVerify(time, findByTradeHistory)) throw new HttpException('존재하지 않는 계좌번호입니다.', 403);
+    if (
+      findByTradeHistory.client.name !== data.name ||
+      findByTradeHistory.client.phone !== data.phone ||
+      !(await bcrypt.compare(data.residentRegistrationNumber, findByTradeHistory.client.residentRegistrationNumber))
+    )
+      throw new HttpException('존재하지 않는 계좌번호입니다.', 403);
+
+    if (!(await bcrypt.compare(data.password, findByTradeHistory.password))) throw new HttpException('비밀번호가 일치하지 않습니다.', 403);
+
+    return findByTradeHistory.trades;
   }
 }

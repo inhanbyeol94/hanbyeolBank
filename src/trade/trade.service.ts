@@ -33,7 +33,7 @@ export class TradeService {
     if (!verify) throw new HttpException('송금할 계좌번호를 다시 확인해주세요.', 403);
 
     /* 입금 트랜젝션 */
-    await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async manager => {
       const createTrade = await manager.create(Trade, { account: { id: data.id }, status: 1, amount: directDepositData.amount });
       const saveTrade = await manager.save(Trade, createTrade);
 
@@ -52,11 +52,10 @@ export class TradeService {
 
   /* 계좌이체 */
   async directDeposit(tradeData: DirectDepositDto): Promise<IMessage> {
+    /* 캐시메모리 호출 */
+    const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(tradeData.phone);
     /* 협력사의 요청에 의해 출금을 시도하는 경우는 협력사 암호키 확인 */
     if (!tradeData.partnerKey) {
-      /* 캐시메모리 호출 */
-      const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(tradeData.phone);
-
       /* 인증 데이터가 없을 경우 예외 반환 */
       if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
 
@@ -66,8 +65,8 @@ export class TradeService {
         throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
       }
 
-      /* 본인 예금계좌 검증을 위해 캐시 메모리 'Type' 변경 */
-      await this.cacheManager.set(tradeData.phone, { ...findByVerifyData, type: 105 });
+      // /* 본인 예금계좌 검증을 위해 캐시 메모리 'Type' 변경 */
+      // await this.cacheManager.set(tradeData.phone, { ...findByVerifyData, type: 105 });
     } else {
       const { id: reqId } = InterpretingAccountNumber(tradeData.accountNumber);
       const findByPartner = await this.partnerRepository.findOne({ where: { account: { id: reqId } }, relations: { account: { client: true } } });
@@ -78,16 +77,16 @@ export class TradeService {
       await this.cacheManager.set(findByPartner.account.client.phone, {
         name: findByPartner.account.client.name,
         verify: true,
-        type: 105,
+        type: 106,
         sequence: 101010,
       });
     }
 
     /* 본인 예금계좌 검증 */
-    await this.accountService.verifyIdentityAndAccount(tradeData);
+    await this.accountService.verifyIdentityAndAccountFree(tradeData);
 
     /* 상대방 계좌번호 검증 */
-    const { data } = await this.accountService.verifyAccountNumber({ accountNumber: tradeData.requestAccountNubmer });
+    const { data } = await this.accountService.verifyAccountNumber({ accountNumber: tradeData.requestAccountNumber });
 
     /* 통장 잔여금액 호출 */
     const currentAmount = await this.accountBalance(tradeData.accountNumber);
@@ -97,17 +96,17 @@ export class TradeService {
 
     /* 예금계좌 ID 추출 */
     const { id: reqId } = InterpretingAccountNumber(tradeData.accountNumber);
-    const { id: resId } = InterpretingAccountNumber(tradeData.requestAccountNubmer);
+    const { id: resId } = InterpretingAccountNumber(tradeData.requestAccountNumber);
 
     /* 거래 트렌젝션 */
-    await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async manager => {
       const createWithdrawals = await manager.create(Trade, { account: { id: reqId }, status: 0, amount: tradeData.amount });
       const resultWithdrawals = await manager.save(Trade, createWithdrawals);
 
       const createWithdrawalsLog = await manager.create(Log, {
         trade: { id: resultWithdrawals.id },
         status: resultWithdrawals.status,
-        context: `[계좌이체/출금] ${tradeData.requestAccountNubmer} / ${data.client.name}`,
+        context: `[계좌이체/출금] ${tradeData.requestAccountNumber} / ${data.client.name}`,
         result: true,
       });
       await manager.save(Log, createWithdrawalsLog);
@@ -122,9 +121,9 @@ export class TradeService {
         result: true,
       });
       await manager.save(Log, createDepositsLog);
+      await this.cacheManager.del(tradeData.phone);
     });
 
-    await this.cacheManager.del(tradeData.phone);
     return { message: '계좌이체가 정상 완료되었습니다.' };
   }
 
@@ -166,7 +165,7 @@ export class TradeService {
     const { id: reqId } = InterpretingAccountNumber(tradeData.accountNumber);
 
     /* 출금 트렌젝션 */
-    await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async manager => {
       const createWithdrawals = await manager.create(Trade, { account: { id: reqId }, status: 0, amount: tradeData.amount });
       const resultWithdrawals = await manager.save(Trade, createWithdrawals);
 

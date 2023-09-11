@@ -1,4 +1,4 @@
-export const identityVerifyTypes = [100, 101, 102, 105, 106];
+export const identityVerifyTypes = [100, 101, 102, 105, 106, 108];
 
 /* 정수별 타입
  * 100 : 클라이언트 생성
@@ -6,4 +6,5 @@ export const identityVerifyTypes = [100, 101, 102, 105, 106];
  * 102 : 나중애 중고마켓 계좌 연결
  * 105 : 예금계좌 유효성 검증
  * 106 : 계좌이체
+ * 108 : 잔액 조회
  */

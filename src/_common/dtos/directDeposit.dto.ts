@@ -38,7 +38,7 @@ export class DirectDepositDto {
   @IsString()
   @MinLength(16)
   @MaxLength(16)
-  requestAccountNubmer: string;
+  requestAccountNumber: string;
 
   @IsNotEmpty()
   @IsNumber()
