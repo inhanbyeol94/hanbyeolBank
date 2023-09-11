@@ -16,7 +16,5 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const message = exception.message; // 예외메세지
       response.status(500).json({ message });
     }
-
-    console.error(exception);
   }
 }
