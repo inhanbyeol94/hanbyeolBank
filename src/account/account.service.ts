@@ -166,7 +166,7 @@ export class AccountService {
 
   /* 잔액 조회 */
   async balanceinquiry(data: BalanceinquiryDto): Promise<Trade[]> {
-    const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(data.phone);
+    const findByVerifyData: IClientVerifyIdentity = await this.cacheManager.get(data.phone); //TEST
     if (!findByVerifyData || findByVerifyData.verify !== true) throw new HttpException('핸드폰 인증이 완료되지 않았습니다.', 403);
 
     /* 어뷰징 유저 의심 요청으로 인증캐시 삭제 */
